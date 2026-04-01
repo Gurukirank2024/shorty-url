@@ -74,9 +74,16 @@
                     </form>
                 </div>
 
-                <!-- Right side: QR code -->
-                <div class="qr-code ml-3">
-                    <img src="{% qr_url_from_text u.shortURL image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
+                <!-- Right side: QR code + download -->
+                <div class="qr-code ml-3 text-center">
+                    <img src="{% qr_url_from_text u.shortURL image_format='png' %}"
+                         height="120" alt="{{ u.shortQuery }}" class="qr-img">
+                    <br>
+                    <a href="{% qr_url_from_text u.shortURL image_format='png' %}"
+                       download="qr_{{ u.shortQuery }}.png"
+                       class="btn btn-sm btn-success mt-2">
+                       ⬇ Download QR
+                    </a>
                 </div>
             </div>
         </div>
@@ -107,6 +114,10 @@
         border-radius: 4px;
         padding: 4px;
         background: #fff;
+    }
+    .qr-code a {
+        display: inline-block;
+        font-weight: 500;
     }
 </style>
 
