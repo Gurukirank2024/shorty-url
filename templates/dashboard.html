@@ -76,7 +76,7 @@
 
                 <!-- Right side: QR code -->
                 <div class="qr-code ml-3">
-                    <img src="{% qr_url_from_text u.originalURL image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
+                    <img src="{% qr_url_from_text 'https://https://shorty-url-c1ns.onrender.com/{{ u.shortQuery }}' image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
                 </div>
             </div>
         </div>
