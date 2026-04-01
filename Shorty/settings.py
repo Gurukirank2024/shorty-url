@@ -27,7 +27,7 @@ SECRET_KEY = 'jkhsdskdfl'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = []
 # Your VirusTotal API key by guru
 VIRUSTOTAL_KEY = config("VIRUSTOTAL_KEY")
 
@@ -155,5 +155,3 @@ EMAIL_HOST_PASSWORD = ""
 EMAIL_USE_TLS = True
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
-import django_heroku
-django_heroku.settings(locals())
