@@ -7,6 +7,8 @@ from home_shorty.models import short_url   # secondary model if needed
 import random
 import string
 from .utils import is_url_safe   # ✅ import the VirusTotal helper
+from django.utils import timezone
+from datetime import timedelta
 
 
 # Dashboard view
@@ -74,8 +76,13 @@ def home(request, query=None):
     else:
         try:
             check = ShortURL.objects.get(shortQuery=query)
-            check.visits += 1
-            check.save()
+
+            # ✅ Only increment if last visit was > 10 seconds ago
+            if not check.updated_at or timezone.now() - check.updated_at > timedelta(seconds=10):
+                check.visits += 1
+                check.updated_at = timezone.now()
+                check.save()
+
             return redirect(check.originalURL)
         except ShortURL.DoesNotExist:
             try:
