@@ -1,0 +1,113 @@
+{% extends 'nav.html' %}
+{% load qr_code %}
+{% block content %}
+
+<div class="container shadow p-4">
+    <div class="row">
+        <div class="col-12 text-center py-2">
+            <h3>Shorten Your URL</h3>
+        </div>
+        <div class="col-10 col-sm-10 col-md-6 mx-auto">
+
+            {% if messages %}
+                {% for msg in messages %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{msg}}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form action="{% url 'generate' %}" method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <input type="url" name="original" class="form-control" placeholder="Loooooooooong URL Here">
+                </div>
+                <div class="form-group">
+                    <div class="input-group-prepend">
+                        <div class="input-group-text">http://localhost:8000/</div>
+                        <input type="text" name="short" class="form-control" placeholder="Short Char (6 chars)"
+                            maxlength="6" id="short">
+                    </div>
+                    <p id="shorthelp" class="form-text text-muted">
+                        Choose your custom short URL (6 characters only) or leave blank to generate randomly.
+                    </p>
+                </div>
+                <div class="form-group">
+                    <input type="submit" class="btn btn-primary px-4" value="Generate">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="container my-4">
+    <div class="row">
+        <div class="col-12 text-center">
+            <h4>Your URLs</h4>
+        </div>
+    </div>
+    <div class="row justify-content-between">
+        {% for u in urls %}
+        <div class="col-10 col-sm-10 col-md-6 mb-2 mx-auto">
+            <div class="customcontainer p-3 d-flex justify-content-between align-items-start">
+
+                <!-- Left side: URL details -->
+                <div class="url-details">
+                    <h6 class="truncate-text">
+                        Original : <a href="{{ u.originalURL }}" target="_blank" class="card-link">{{ u.originalURL }}</a>
+                    </h6>
+                    <h6 class="truncate-text">
+                        Shorten : <a href="http://localhost:8000/{{ u.shortQuery }}" target="_blank" class="card-link">
+                            http://localhost:8000/{{ u.shortQuery }}
+                        </a>
+                    </h6>
+                    <h6>Visits : {{ u.visits }}</h6>
+                    <h6>Last Visited : {{ u.updated_at }} (IST)</h6>
+                    <h6>Created : {{ u.created_at }} (IST)</h6>
+                    <form action="{% url 'deleteurl' %}" method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="delete" value="{{ u.shortQuery }}">
+                        <input type="submit" class="btn btn-danger btn-sm" value="Delete">
+                    </form>
+                </div>
+
+                <!-- Right side: QR code -->
+                <div class="qr-code ml-3">
+                    <img src="{% qr_url_from_text u.originalURL image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .customcontainer {
+        border: 2px solid #1d1d1d;
+        border-radius: 5px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .url-details {
+        max-width: 70%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    .truncate-text {
+        word-break: break-word;
+        white-space: normal;
+    }
+    .qr-code img {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 4px;
+        background: #fff;
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'nav.html' %}
+
+{% block content %}
+
+<!-- Typing Effect Heading -->
+<h1 class="text-center">
+  <span id="typing"></span><span class="cursor">|</span>
+</h1>
+
+{% if error %}
+<div class="container shadow p-4">
+  <div class="row">
+    <div class="col-12 text-center">
+      <p>The Url you are looking for doesn't exist</p>
+      <a href="{% url 'dashboard' %}" class="btn btn-primary">Shorten Your URL</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<main role="main" class="inner cover">
+  <br>
+  <div class="col-12 text-center">
+    <p class="lead" style="text-align: center;">
+      Shorty is a URL Shortening Service built to shorten all your long URLs on the go.<br>
+      Create your customized short URLs or just shorten it randomly.
+      {% if user.is_authenticated %}
+      <br><br>Start shortening now!!
+      {% else %}
+      <br><br>Sign Up now and start shortening.
+      {% endif %}
+    </p>
+    <p class="lead" style="text-align: center;">
+      <a href="{% url 'dashboard' %}" class="btn btn-lg btn-secondary" style="align-items: center;">Shorten URL</a>
+    </p>
+  </div>
+</main>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+  integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+  crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+  integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+  crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+  integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
+  crossorigin="anonymous"></script>
+
+<!-- Typing Effect Script -->
+<script>
+  const text = "Shorty - URL Shortening Service";
+  let i = 0;
+  function typingEffect() {
+    if (i < text.length) {
+      document.getElementById("typing").innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typingEffect, 100); // typing speed
+    }
+  }
+  typingEffect();
+</script>
+
+<!-- Cursor Blink CSS -->
+<style>
+  .cursor {
+    display: inline-block;
+    margin-left: 2px;
+    animation: blink 0.8s infinite;
+    color: #000;
+    font-weight: bold;
+  }
+  @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+</style>
+
+{% endblock %}

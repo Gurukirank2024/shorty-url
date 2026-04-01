@@ -1,0 +1,83 @@
+{% extends 'nav.html' %}
+
+{% block content %}
+
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-6 col-sm-6 col-md-5 col-lg-4 mx-auto">
+
+      <!-- Signup Card -->
+      <div class="card signup-card shadow">
+        <div class="card-body">
+          <h3 class="card-title text-center">Signup</h3>
+
+          {% if error %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              {{ error }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          {% endif %}
+
+          <form action="{% url 'signup' %}" method="POST">
+            {% csrf_token %}
+
+            <div class="form-group">
+              <input type="text" class="form-control text-dark" name="username" placeholder="Username">
+            </div>
+
+            <div class="form-group">
+              <input type="email" class="form-control text-dark" name="email" autocomplete="off" placeholder="Email">
+            </div>
+
+            <div class="form-group">
+              <input type="password" class="form-control text-dark" name="password" placeholder="Password">
+            </div>
+
+            <div class="form-group">
+              <input type="password" class="form-control text-dark" name="password2" placeholder="Confirm Password">
+            </div>
+
+            <div class="form-group text-center">
+              <input type="submit" class="btn btn-outline-success px-4" value="Signup">
+            </div>
+
+            <p class="text-center mb-0">
+              Already Registered?
+              <a class="card-link" href="{% url 'loginPage' %}">Login</a>
+            </p>
+          </form>
+        </div>
+      </div>
+      <!-- End Signup Card -->
+
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Signup Card Styling */
+  .signup-card {
+    transition: background-color 0.4s ease;
+    border-radius: 10px;
+  }
+  .signup-card:hover {
+    background-color: lavender; /* hover effect */
+  }
+  .form-control {
+    color: #000; /* black text inside fields */
+  }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+  integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+  crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+  integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+  crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+  integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
+  crossorigin="anonymous"></script>
+
+{% endblock %}
