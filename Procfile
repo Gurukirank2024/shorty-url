@@ -1,1 +1,1 @@
-web: gunicorn Shorty.wsgi
+gunicorn Shorty.wsgi:application --bind 0.0.0.0:$PORT
