@@ -14,6 +14,11 @@ from .utils import is_url_safe   # ✅ import the VirusTotal helper
 def dashboard(request):
     usr = request.user
     urls = ShortURL.objects.filter(user=usr)
+
+    # Attach full short URL dynamically for each object
+    for u in urls:
+        u.shortURL = request.build_absolute_uri(f"/{u.shortQuery}")
+
     return render(request, 'dashboard.html', {'urls': urls})
 
 

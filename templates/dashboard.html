@@ -60,8 +60,8 @@
                         Original : <a href="{{ u.originalURL }}" target="_blank" class="card-link">{{ u.originalURL }}</a>
                     </h6>
                     <h6 class="truncate-text">
-                        Shorten : <a href="http://localhost:8000/{{ u.shortQuery }}" target="_blank" class="card-link">
-                            http://localhost:8000/{{ u.shortQuery }}
+                        Shorten : <a href="{{ u.shortURL }}" target="_blank" class="card-link">
+                            {{ u.shortURL }}
                         </a>
                     </h6>
                     <h6>Visits : {{ u.visits }}</h6>
@@ -76,7 +76,7 @@
 
                 <!-- Right side: QR code -->
                 <div class="qr-code ml-3">
-                    <img src="{% qr_url_from_text 'https://https://shorty-url-c1ns.onrender.com/{{ u.shortQuery }}' image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
+                    <img src="{% qr_url_from_text u.shortURL image_format='png' %}" height="120" alt="{{ u.shortQuery }}">
                 </div>
             </div>
         </div>
