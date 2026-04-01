@@ -27,7 +27,9 @@ SECRET_KEY = 'jkhsdskdfl'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+from decouple import config
+
+ALLOWED_HOSTS = config('ALLOWED_HOSTS').split(',')
 # Your VirusTotal API key by guru
 VIRUSTOTAL_KEY = config("VIRUSTOTAL_KEY")
 
