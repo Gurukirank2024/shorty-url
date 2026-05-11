@@ -60,9 +60,12 @@
                         Original : <a href="{{ u.originalURL }}" target="_blank" class="card-link">{{ u.originalURL }}</a>
                     </h6>
                     <h6 class="truncate-text">
-                        Shorten : <a href="{{ u.shortURL }}" target="_blank" class="card-link">
-                            {{ u.shortURL }}
-                        </a>
+                        Shorten :
+                        <a href="{{ u.shortURL }}" target="_blank" class="card-link">{{ u.shortURL }}</a>
+                        <!-- Clipboard icon instead of button -->
+                        <span class="copy-icon" data-url="{{ u.shortURL }}" title="Copy to clipboard">
+                            📋
+                        </span>
                     </h6>
                     <h6>Visits : {{ u.visits }}</h6>
                     <h6>Last Visited : {{ u.updated_at }} (IST)</h6>
@@ -119,6 +122,35 @@
         display: inline-block;
         font-weight: 500;
     }
+    .copy-icon {
+        cursor: pointer;
+        margin-left: 8px;
+        font-size: 1rem;
+    }
+    .copy-icon.copied {
+        color: green;
+        font-weight: bold;
+    }
 </style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const copyIcons = document.querySelectorAll(".copy-icon");
+
+    copyIcons.forEach(icon => {
+        icon.addEventListener("click", () => {
+            const urlToCopy = icon.getAttribute("data-url");
+            navigator.clipboard.writeText(urlToCopy).then(() => {
+                icon.textContent = "✔"; // change icon to checkmark
+                icon.classList.add("copied");
+                setTimeout(() => {
+                    icon.textContent = "📋"; // revert back to clipboard icon
+                    icon.classList.remove("copied");
+                }, 1500);
+            });
+        });
+    });
+});
+</script>
 
 {% endblock %}
