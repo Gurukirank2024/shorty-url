@@ -9,7 +9,6 @@ import string
 from .utils import is_url_safe, get_country_from_ip   # ✅ helper
 from django.utils import timezone
 from collections import Counter
-from datetime import timedelta   # ✅ for suppression window
 
 # Dashboard view
 @login_required(login_url='/loginPage/')
@@ -80,26 +79,18 @@ def home(request, query=None):
             final_referrer = source if source else referrer
             country = get_country_from_ip(ip)
 
-            # ✅ Suppression window: avoid duplicate events within 2 minutes
-            two_minutes_ago = timezone.now() - timedelta(minutes=2)
-            already_recent = ClickEvent.objects.filter(
+            # ✅ Always increment visits and log every request
+            check.visits += 1
+            check.updated_at = timezone.now()
+            check.save()
+
+            ClickEvent.objects.create(
                 short_url=check,
                 ip_address=ip,
-                clicked_at__gte=two_minutes_ago
-            ).exists()
-
-            if not already_recent:
-                check.visits += 1
-                check.updated_at = timezone.now()
-                check.save()
-
-                ClickEvent.objects.create(
-                    short_url=check,
-                    ip_address=ip,
-                    user_agent=user_agent,
-                    referrer=final_referrer,
-                    country=country
-                )
+                user_agent=user_agent,
+                referrer=final_referrer,
+                country=country
+            )
 
             return redirect(check.originalURL)
 
