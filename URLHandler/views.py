@@ -69,7 +69,7 @@ def home(request, query=None):
 
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '0.0.0.0'))
             if ',' in ip:
-                ip = ip.split(',')[0].strip()
+                ip = ip.split(',')[-1].strip()   # ✅ take the last IP (client), not the first (proxy)
             if ip.startswith("::ffff:"):
                 ip = ip.replace("::ffff:", "")
 
