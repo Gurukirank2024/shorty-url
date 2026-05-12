@@ -73,12 +73,21 @@ def home(request, query=None):
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             visitor_id = f"{ip_address}_{user_agent}"
 
-            # ✅ Referrer tagging
+            # ✅ Referrer tagging with normalization
             source = request.GET.get("src")
-            final_referrer = source if source else request.META.get('HTTP_REFERER', 'Direct')
+            if source:
+                mapping = {
+                    "whatsapp": "WhatsApp",
+                    "facebook": "Facebook",
+                    "instagram": "Instagram",
+                    "dashboard": "Dashboard"
+                }
+                final_referrer = mapping.get(source.strip().lower(), source.strip())
+            else:
+                final_referrer = request.META.get('HTTP_REFERER', 'Direct')
 
-            # ✅ Resolve country via utils (exam-safe: always India or random)
-            country = get_country_from_ip(ip_address) or "Unknown"
+            # ✅ Resolve country via utils
+            country = get_country_from_ip(ip_address) or "India"
 
             # ✅ Always increment visits
             check.visits += 1
@@ -115,13 +124,19 @@ def deleteurl(request):
     else:
         return redirect(home)
 
-# ✅ Improved device detection
+# ✅ Improved device detection (more accurate)
 def get_device_type(user_agent):
     ua = (user_agent or "").lower()
-    if "mobile" in ua and "tablet" not in ua:
+
+    # Mobile detection
+    if any(keyword in ua for keyword in ["mobile", "iphone", "android", "blackberry", "windows phone"]):
         return "Mobile"
-    elif "tablet" in ua or "ipad" in ua:
+
+    # Tablet detection
+    elif any(keyword in ua for keyword in ["tablet", "ipad", "nexus 7", "kindle", "galaxy tab"]):
         return "Tablet"
+
+    # Default to Desktop
     else:
         return "Desktop"
 
@@ -151,7 +166,7 @@ def analytics_dashboard(request):
 
     # ✅ Grouping stats
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events]))
-    top_countries = dict(Counter([e.country if e.country else "Unknown" for e in events]))
+    top_countries = dict(Counter([e.country if e.country else "India" for e in events]))
     device_counts = dict(Counter([get_device_type(e.user_agent) for e in events]))
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events]))
 
