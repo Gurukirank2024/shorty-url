@@ -68,7 +68,7 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Assign visitor_id cookie
+            # ✅ Assign or reuse visitor_id cookie
             visitor_id = request.COOKIES.get('visitor_id')
             if not visitor_id:
                 visitor_id = str(uuid.uuid4())
@@ -84,7 +84,7 @@ def home(request, query=None):
             check.updated_at = timezone.now()
             check.save()
 
-            # ✅ Always log a ClickEvent (every click)
+            # ✅ Always log a ClickEvent with the same visitor_id
             ClickEvent.objects.create(
                 short_url=check,
                 ip_address=request.META.get('REMOTE_ADDR'),
@@ -94,8 +94,16 @@ def home(request, query=None):
                 visitor_id=visitor_id
             )
 
+            # ✅ Set cookie BEFORE redirect, with strict flags
             response = redirect(check.originalURL)
-            response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*365)  # 1 year
+            response.set_cookie(
+                'visitor_id',
+                visitor_id,
+                max_age=60*60*24*365,   # 1 year
+                secure=True,            # required for HTTPS on Render
+                httponly=True,          # prevents JS tampering
+                samesite='Lax'          # avoids cross-site drops
+            )
             return response
 
         except ShortURL.DoesNotExist:
