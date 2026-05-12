@@ -1,15 +1,14 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import ShortURL   # main model
-from home_shorty.models import short_url   # secondary model if needed
+from .models import ShortURL, ClickEvent
+from home_shorty.models import short_url
 
 import random
 import string
-from .utils import is_url_safe   # ✅ import the VirusTotal helper
+from .utils import is_url_safe, get_country_from_ip   # ✅ helper
 from django.utils import timezone
-from datetime import timedelta
-
+from collections import Counter
 
 # Dashboard view
 @login_required(login_url='/loginPage/')
@@ -17,19 +16,14 @@ def dashboard(request):
     usr = request.user
     urls = ShortURL.objects.filter(user=usr)
 
-    # Attach full short URL dynamically for each object
     for u in urls:
         u.shortURL = request.build_absolute_uri(f"/{u.shortQuery}")
 
     return render(request, 'dashboard.html', {'urls': urls})
 
-
-# Random short code generator
 def randomGenerator():
     return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
 
-
-# Generate short URL
 @login_required(login_url='/loginPage/')
 def generate(request):
     if request.method == 'POST':
@@ -37,7 +31,6 @@ def generate(request):
         original = request.POST.get('original')
         short = request.POST.get('short')
 
-        # ✅ Safety check before saving
         if original and not is_url_safe(original):
             messages.error(request, 'Unsafe URL detected. Cannot shorten.')
             return redirect(dashboard)
@@ -53,8 +46,7 @@ def generate(request):
                 return redirect(dashboard)
 
         elif original:
-            generated = False
-            while not generated:
+            while True:
                 short = randomGenerator()
                 check = ShortURL.objects.filter(shortQuery=short)
                 if not check.exists():
@@ -68,8 +60,6 @@ def generate(request):
     else:
         return redirect('/dashboard')
 
-
-# Home redirect view
 def home(request, query=None):
     if not query:
         return render(request, 'home.html')
@@ -77,11 +67,26 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Only increment if last visit was > 10 seconds ago
-            if not check.updated_at or timezone.now() - check.updated_at > timedelta(seconds=10):
-                check.visits += 1
-                check.updated_at = timezone.now()
-                check.save()
+            # ✅ Always increment visits and log event (no cooldown)
+            check.visits += 1
+            check.updated_at = timezone.now()
+            check.save()
+
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '0.0.0.0'))
+            if ',' in ip:
+                ip = ip.split(',')[0].strip()
+
+            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+            referrer = request.META.get('HTTP_REFERER', 'Direct')
+            country = get_country_from_ip(ip)
+
+            ClickEvent.objects.create(
+                short_url=check,
+                ip_address=ip,
+                user_agent=user_agent,
+                referrer=referrer,
+                country=country
+            )
 
             return redirect(check.originalURL)
         except ShortURL.DoesNotExist:
@@ -93,17 +98,46 @@ def home(request, query=None):
         except Exception:
             return render(request, 'home.html', {'error': 'Error'})
 
-
-# Delete short URL
 @login_required(login_url='/loginPage/')
 def deleteurl(request):
     if request.method == "POST":
         short = request.POST.get('delete')
-        try:
-            check = ShortURL.objects.filter(shortQuery=short)
-            check.delete()
-            return redirect(dashboard)
-        except ShortURL.DoesNotExist:
-            return redirect(home)
+        ShortURL.objects.filter(shortQuery=short).delete()
+        return redirect(dashboard)
     else:
         return redirect(home)
+
+@login_required(login_url='/loginPage/')
+def analytics_dashboard(request):
+    usr = request.user
+    urls = ShortURL.objects.filter(user=usr)
+    events = ClickEvent.objects.filter(short_url__in=urls)
+
+    total_clicks = len(events)
+    unique_visitors = len(set([e.ip_address for e in events])) if events else 0
+    top_url = urls.order_by('-visits').first() if urls else None
+
+    ip_counts = Counter([e.ip_address for e in events]) if events else {}
+    single_click_ips = sum(1 for c in ip_counts.values() if c == 1)
+    bounce_rate = (single_click_ips / unique_visitors * 100) if unique_visitors else 0
+
+    clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
+    top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
+    device_counts = dict(Counter([
+        'Mobile' if 'Mobile' in (e.user_agent or '') else 'Desktop'
+        for e in events
+    ])) if events else {}
+    referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
+
+    context = {
+        'total_clicks': total_clicks,
+        'unique_visitors': unique_visitors,
+        'top_url': top_url,
+        'bounce_rate': round(bounce_rate, 2),
+        'clicks_by_day': clicks_by_day,
+        'top_countries': top_countries,
+        'device_counts': device_counts,
+        'referrers': referrers,
+        'urls': urls,
+    }
+    return render(request, 'analytics_dashboard.html', context)

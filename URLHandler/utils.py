@@ -7,7 +7,6 @@ def is_url_safe(url):
     Check if a URL is safe using VirusTotal API.
     Returns True if safe, False if malicious.
     """
-
     try:
         headers = {"x-apikey": settings.VIRUSTOTAL_KEY}
 
@@ -31,3 +30,16 @@ def is_url_safe(url):
     except Exception:
         # Fail gracefully — don’t block shortening
         return True
+
+
+def get_country_from_ip(ip):
+    """
+    Get country name from IP using ip-api.com.
+    Returns 'Unknown' if lookup fails.
+    """
+    try:
+        response = requests.get(f"http://ip-api.com/json/{ip}")
+        data = response.json()
+        return data.get("country", "Unknown")
+    except Exception:
+        return "Unknown"
