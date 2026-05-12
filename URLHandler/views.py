@@ -8,7 +8,6 @@ import random
 import string
 from .utils import is_url_safe, get_country_from_ip   # ✅ helper
 from django.utils import timezone
-from datetime import timedelta
 from collections import Counter
 
 # Dashboard view
@@ -81,7 +80,7 @@ def home(request, query=None):
 
             country = get_country_from_ip(ip)
 
-            # ✅ Always count every request as a visit (no time-based deduplication here)
+            # ✅ Always count every request as a visit
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
@@ -132,16 +131,16 @@ def analytics_dashboard(request):
     # Raw total clicks (every request logged)
     total_clicks = len(events)
 
-    # ✅ Unique visitors: deduplicate by IP + user agent
-    visitor_pairs = [(e.ip_address, e.user_agent) for e in events]
-    unique_visitors = len(set(visitor_pairs)) if events else 0
+    # ✅ Unique visitors: deduplicate by IP only
+    visitor_ips = [e.ip_address for e in events]
+    unique_visitors = len(set(visitor_ips)) if events else 0
 
     top_url = urls.order_by('-visits').first() if urls else None
 
     # ✅ Bounce rate: based on unique visitors
-    visitor_counts = Counter(visitor_pairs) if events else {}
-    single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
-    bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
+    ip_counts = Counter(visitor_ips) if events else {}
+    single_click_ips = sum(1 for c in ip_counts.values() if c == 1)
+    bounce_rate = (single_click_ips / unique_visitors * 100) if unique_visitors else 0
 
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
     top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
@@ -156,7 +155,7 @@ def analytics_dashboard(request):
 
     context = {
         'total_clicks': total_clicks,          # raw clicks
-        'unique_visitors': unique_visitors,    # deduplicated visitors
+        'unique_visitors': unique_visitors,    # deduplicated by IP
         'top_url': top_url,
         'bounce_rate': round(bounce_rate, 2),  # based on unique visitors
         'clicks_by_day': clicks_by_day,
