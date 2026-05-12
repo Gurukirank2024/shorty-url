@@ -70,21 +70,16 @@ def home(request, query=None):
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '0.0.0.0'))
             if ',' in ip:
                 ip = ip.split(',')[0].strip()
-
-            # ✅ Normalize IPv6-mapped addresses
             if ip.startswith("::ffff:"):
                 ip = ip.replace("::ffff:", "")
 
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
-
-            # ✅ Capture src parameter if present
             source = request.GET.get("src", None)
             final_referrer = source if source else referrer
-
             country = get_country_from_ip(ip)
 
-            # ✅ Always count every request as a visit
+            # ✅ Always increment visits and log every request
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
@@ -98,6 +93,7 @@ def home(request, query=None):
             )
 
             return redirect(check.originalURL)
+
         except ShortURL.DoesNotExist:
             try:
                 check = short_url.objects.get(short_Query=query)
@@ -147,19 +143,13 @@ def analytics_dashboard(request):
 
     top_url = urls.order_by('-visits').first() if urls else None
 
-    # ✅ Bounce rate: based on unique visitors
     visitor_counts = Counter(visitor_keys) if events else {}
     single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
     bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
 
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
     top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
-
-    device_counts = dict(Counter([
-        get_device_type(e.user_agent)
-        for e in events
-    ])) if events else {}
-
+    device_counts = dict(Counter([get_device_type(e.user_agent) for e in events])) if events else {}
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
 
     context = {
