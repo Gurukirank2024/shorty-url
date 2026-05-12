@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings   # use AUTH_USER_MODEL
 
-class ShortURL(models.Model):   # <-- capitalized class name
+class ShortURL(models.Model):
     originalURL = models.URLField(blank=False)
     shortQuery = models.CharField(blank=False, max_length=8, unique=True)
     visits = models.IntegerField(default=0)
@@ -13,7 +13,6 @@ class ShortURL(models.Model):   # <-- capitalized class name
         return f"{self.shortQuery} -> {self.originalURL}"
 
 
-# ✅ New model for analytics
 class ClickEvent(models.Model):
     short_url = models.ForeignKey(ShortURL, on_delete=models.CASCADE, related_name="click_events")
     ip_address = models.GenericIPAddressField()
@@ -21,6 +20,9 @@ class ClickEvent(models.Model):
     referrer = models.CharField(max_length=255, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
     clicked_at = models.DateTimeField(auto_now_add=True)
+
+    # ✅ New field for cookie/session visitor tracking
+    visitor_id = models.CharField(max_length=36, blank=True, null=True)
 
     def __str__(self):
         return f"Click on {self.short_url.shortQuery} at {self.clicked_at}"

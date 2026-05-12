@@ -6,20 +6,10 @@ from home_shorty.models import short_url
 
 import random
 import string
-from .utils import is_url_safe, get_country_from_ip   # ✅ helper
+import uuid   # ✅ for visitor_id
+from .utils import is_url_safe, get_country_from_ip
 from django.utils import timezone
 from collections import Counter
-
-# ✅ Helper to normalize IPs consistently
-def normalize_ip(ip):
-    if not ip:
-        return "0.0.0.0"
-    ip = ip.strip()
-    if ',' in ip:
-        ip = ip.split(',')[-1].strip()   # always take last (client IP)
-    if ip.startswith("::ffff:"):
-        ip = ip.replace("::ffff:", "")
-    return ip
 
 # Dashboard view
 @login_required(login_url='/loginPage/')
@@ -78,27 +68,34 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            ip = normalize_ip(request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')))
+            # ✅ Assign visitor_id cookie
+            visitor_id = request.COOKIES.get('visitor_id')
+            if not visitor_id:
+                visitor_id = str(uuid.uuid4())
+
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
             source = request.GET.get("src", None)
             final_referrer = source if source else referrer
-            country = get_country_from_ip(ip)
+            country = get_country_from_ip(request.META.get('REMOTE_ADDR'))
 
-            # ✅ Always increment visits and log every request
+            # Always increment visits
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
 
             ClickEvent.objects.create(
                 short_url=check,
-                ip_address=ip,
+                ip_address=request.META.get('REMOTE_ADDR'),
                 user_agent=user_agent,
                 referrer=final_referrer,
-                country=country
+                country=country,
+                visitor_id=visitor_id   # ✅ new field in model
             )
 
-            return redirect(check.originalURL)
+            response = redirect(check.originalURL)
+            response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*365)  # 1 year
+            return response
 
         except ShortURL.DoesNotExist:
             try:
@@ -134,15 +131,10 @@ def analytics_dashboard(request):
     urls = ShortURL.objects.filter(user=usr)
     events = ClickEvent.objects.filter(short_url__in=urls)
 
-    # Raw total clicks (every request logged)
     total_clicks = len(events)
 
-    # ✅ Unique visitors: deduplicate by normalized IP + short URL
-    visitor_keys = []
-    for e in events:
-        ip = normalize_ip(e.ip_address)
-        visitor_keys.append((ip, e.short_url_id))
-
+    # ✅ Unique visitors: deduplicate by visitor_id + short URL
+    visitor_keys = [(e.visitor_id, e.short_url_id) for e in events if e.visitor_id]
     unique_visitors = len(set(visitor_keys)) if events else 0
 
     top_url = urls.order_by('-visits').first() if urls else None
@@ -157,10 +149,10 @@ def analytics_dashboard(request):
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
 
     context = {
-        'total_clicks': total_clicks,          # raw clicks
-        'unique_visitors': unique_visitors,    # deduplicated by normalized IP + short URL
+        'total_clicks': total_clicks,
+        'unique_visitors': unique_visitors,
         'top_url': top_url,
-        'bounce_rate': round(bounce_rate, 2),  # based on unique visitors
+        'bounce_rate': round(bounce_rate, 2),
         'clicks_by_day': clicks_by_day,
         'top_countries': top_countries,
         'device_counts': device_counts,
