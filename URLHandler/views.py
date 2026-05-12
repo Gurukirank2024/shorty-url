@@ -10,6 +10,17 @@ from .utils import is_url_safe, get_country_from_ip   # ✅ helper
 from django.utils import timezone
 from collections import Counter
 
+# ✅ Helper to normalize IPs consistently
+def normalize_ip(ip):
+    if not ip:
+        return "0.0.0.0"
+    ip = ip.strip()
+    if ',' in ip:
+        ip = ip.split(',')[-1].strip()   # always take last (client IP)
+    if ip.startswith("::ffff:"):
+        ip = ip.replace("::ffff:", "")
+    return ip
+
 # Dashboard view
 @login_required(login_url='/loginPage/')
 def dashboard(request):
@@ -67,12 +78,7 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '0.0.0.0'))
-            if ',' in ip:
-                ip = ip.split(',')[-1].strip()   # ✅ take last IP (client), not first (proxy)
-            if ip.startswith("::ffff:"):
-                ip = ip.replace("::ffff:", "")
-
+            ip = normalize_ip(request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')))
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
             source = request.GET.get("src", None)
@@ -134,9 +140,7 @@ def analytics_dashboard(request):
     # ✅ Unique visitors: deduplicate by normalized IP + short URL
     visitor_keys = []
     for e in events:
-        ip = e.ip_address
-        if ip.startswith("::ffff:"):
-            ip = ip.replace("::ffff:", "")
+        ip = normalize_ip(e.ip_address)
         visitor_keys.append((ip, e.short_url_id))
 
     unique_visitors = len(set(visitor_keys)) if events else 0
