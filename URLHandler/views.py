@@ -67,7 +67,7 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Always increment visits and log event (no cooldown)
+            # ✅ Always increment visits and log event
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
@@ -78,13 +78,18 @@ def home(request, query=None):
 
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
+
+            # ✅ Capture src parameter if present
+            source = request.GET.get("src", None)
+            final_referrer = source if source else referrer
+
             country = get_country_from_ip(ip)
 
             ClickEvent.objects.create(
                 short_url=check,
                 ip_address=ip,
                 user_agent=user_agent,
-                referrer=referrer,
+                referrer=final_referrer,
                 country=country
             )
 
