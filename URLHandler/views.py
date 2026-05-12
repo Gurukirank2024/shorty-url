@@ -79,18 +79,19 @@ def home(request, query=None):
             final_referrer = source if source else referrer
             country = get_country_from_ip(request.META.get('REMOTE_ADDR'))
 
-            # Always increment visits
+            # ✅ Always increment visits (every click)
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
 
+            # ✅ Always log a ClickEvent (every click)
             ClickEvent.objects.create(
                 short_url=check,
                 ip_address=request.META.get('REMOTE_ADDR'),
                 user_agent=user_agent,
                 referrer=final_referrer,
                 country=country,
-                visitor_id=visitor_id   # ✅ new field in model
+                visitor_id=visitor_id
             )
 
             response = redirect(check.originalURL)
