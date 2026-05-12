@@ -81,24 +81,18 @@ def home(request, query=None):
 
             country = get_country_from_ip(ip)
 
-            # ✅ Deduplication: avoid double-counting within 10 seconds (IP only)
-            recent_event = ClickEvent.objects.filter(
+            # ✅ Always count every request as a visit (no time-based deduplication here)
+            check.visits += 1
+            check.updated_at = timezone.now()
+            check.save()
+
+            ClickEvent.objects.create(
                 short_url=check,
-                ip_address=ip
-            ).order_by('-clicked_at').first()
-
-            if not recent_event or (timezone.now() - recent_event.clicked_at) > timedelta(seconds=10):
-                check.visits += 1
-                check.updated_at = timezone.now()
-                check.save()
-
-                ClickEvent.objects.create(
-                    short_url=check,
-                    ip_address=ip,
-                    user_agent=user_agent,
-                    referrer=final_referrer,
-                    country=country
-                )
+                ip_address=ip,
+                user_agent=user_agent,
+                referrer=final_referrer,
+                country=country
+            )
 
             return redirect(check.originalURL)
         except ShortURL.DoesNotExist:
@@ -135,13 +129,19 @@ def analytics_dashboard(request):
     urls = ShortURL.objects.filter(user=usr)
     events = ClickEvent.objects.filter(short_url__in=urls)
 
+    # Raw total clicks (every request logged)
     total_clicks = len(events)
-    unique_visitors = len(set([e.ip_address for e in events])) if events else 0
+
+    # ✅ Unique visitors: deduplicate by IP + user agent
+    visitor_pairs = [(e.ip_address, e.user_agent) for e in events]
+    unique_visitors = len(set(visitor_pairs)) if events else 0
+
     top_url = urls.order_by('-visits').first() if urls else None
 
-    ip_counts = Counter([e.ip_address for e in events]) if events else {}
-    single_click_ips = sum(1 for c in ip_counts.values() if c == 1)
-    bounce_rate = (single_click_ips / unique_visitors * 100) if unique_visitors else 0
+    # ✅ Bounce rate: based on unique visitors
+    visitor_counts = Counter(visitor_pairs) if events else {}
+    single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
+    bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
 
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
     top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
@@ -155,10 +155,10 @@ def analytics_dashboard(request):
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
 
     context = {
-        'total_clicks': total_clicks,
-        'unique_visitors': unique_visitors,
+        'total_clicks': total_clicks,          # raw clicks
+        'unique_visitors': unique_visitors,    # deduplicated visitors
         'top_url': top_url,
-        'bounce_rate': round(bounce_rate, 2),
+        'bounce_rate': round(bounce_rate, 2),  # based on unique visitors
         'clicks_by_day': clicks_by_day,
         'top_countries': top_countries,
         'device_counts': device_counts,
