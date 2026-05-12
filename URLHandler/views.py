@@ -67,15 +67,17 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Fingerprint visitor using IP + User Agent
-            ip_address = request.META.get('REMOTE_ADDR')
+            # ✅ Get real client IP (Render uses proxy)
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             visitor_id = f"{ip_address}_{user_agent}"
 
             referrer = request.META.get('HTTP_REFERER', 'Direct')
             source = request.GET.get("src", None)
             final_referrer = source if source else referrer
-            country = get_country_from_ip(ip_address)
+
+            # ✅ Resolve country, default to "Unknown"
+            country = get_country_from_ip(ip_address) or "Unknown"
 
             # ✅ Always increment visits
             check.visits += 1
@@ -92,7 +94,6 @@ def home(request, query=None):
                 visitor_id=visitor_id
             )
 
-            # ✅ Redirect without cookies
             return redirect(check.originalURL)
 
         except ShortURL.DoesNotExist:
@@ -129,32 +130,42 @@ def analytics_dashboard(request):
     urls = ShortURL.objects.filter(user=usr)
     events = ClickEvent.objects.filter(short_url__in=urls)
 
-    # ✅ Total clicks = number of events
+    # ✅ Lifetime stats
     total_clicks = events.count()
-
-    # ✅ Unique visitors: deduplicate by fingerprint (visitor_id)
     visitor_ids = {e.visitor_id for e in events if e.visitor_id}
     unique_visitors = len(visitor_ids)
+
+    # ✅ Daily stats (time‑windowed)
+    today = timezone.now().date()
+    events_today = events.filter(clicked_at__date=today)
+    visitor_ids_today = {e.visitor_id for e in events_today if e.visitor_id}
+    unique_visitors_today = len(visitor_ids_today)
+    total_clicks_today = events_today.count()
 
     # ✅ Top URL by visits
     top_url = urls.order_by('-visits').first() if urls else None
 
-    # ✅ Bounce rate: visitors who clicked only once across ALL URLs
+    # ✅ Bounce rate
     visitor_counts = Counter([e.visitor_id for e in events if e.visitor_id])
     single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
     bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
 
     # ✅ Grouping stats
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events]))
-    top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events]))
+    top_countries = dict(Counter([e.country if e.country else "Unknown" for e in events]))
     device_counts = dict(Counter([get_device_type(e.user_agent) for e in events]))
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events]))
 
     context = {
+        # Lifetime
         'total_clicks': total_clicks,
         'unique_visitors': unique_visitors,
-        'top_url': top_url,
         'bounce_rate': round(bounce_rate, 2),
+        # Daily
+        'total_clicks_today': total_clicks_today,
+        'unique_visitors_today': unique_visitors_today,
+        # Other stats
+        'top_url': top_url,
         'clicks_by_day': clicks_by_day,
         'top_countries': top_countries,
         'device_counts': device_counts,
