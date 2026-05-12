@@ -34,12 +34,18 @@ def is_url_safe(url):
 
 def get_country_from_ip(ip):
     """
-    Get country name from IP using ip-api.com.
+    Get country name from IP using ipapi.co.
     Returns 'Unknown' if lookup fails.
     """
     try:
-        response = requests.get(f"http://ip-api.com/json/{ip}")
-        data = response.json()
-        return data.get("country", "Unknown")
+        # Handle localhost testing
+        if ip in ["127.0.0.1", "::1"]:
+            return "Localhost"
+
+        response = requests.get(f"https://ipapi.co/{ip}/json/")
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("country_name", "Unknown")
+        return "Unknown"
     except Exception:
         return "Unknown"

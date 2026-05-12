@@ -16,8 +16,9 @@ def dashboard(request):
     usr = request.user
     urls = ShortURL.objects.filter(user=usr)
 
+    # ✅ Append ?src=dashboard so referrer is tracked properly
     for u in urls:
-        u.shortURL = request.build_absolute_uri(f"/{u.shortQuery}")
+        u.shortURL = request.build_absolute_uri(f"/{u.shortQuery}?src=dashboard")
 
     return render(request, 'dashboard.html', {'urls': urls})
 
@@ -72,11 +73,11 @@ def home(request, query=None):
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             visitor_id = f"{ip_address}_{user_agent}"
 
-            referrer = request.META.get('HTTP_REFERER', 'Direct')
-            source = request.GET.get("src", None)
-            final_referrer = source if source else referrer
+            # ✅ Referrer tagging
+            source = request.GET.get("src")
+            final_referrer = source if source else request.META.get('HTTP_REFERER', 'Direct')
 
-            # ✅ Resolve country, default to "Unknown"
+            # ✅ Resolve country via utils (must use API in utils.py)
             country = get_country_from_ip(ip_address) or "Unknown"
 
             # ✅ Always increment visits
@@ -132,21 +133,19 @@ def analytics_dashboard(request):
 
     # ✅ Lifetime stats
     total_clicks = events.count()
-    visitor_ids = {e.visitor_id for e in events if e.visitor_id}
-    unique_visitors = len(visitor_ids)
+    unique_visitors = events.values("ip_address", "user_agent").distinct().count()
 
     # ✅ Daily stats (time‑windowed)
     today = timezone.now().date()
     events_today = events.filter(clicked_at__date=today)
-    visitor_ids_today = {e.visitor_id for e in events_today if e.visitor_id}
-    unique_visitors_today = len(visitor_ids_today)
+    unique_visitors_today = events_today.values("ip_address", "user_agent").distinct().count()
     total_clicks_today = events_today.count()
 
     # ✅ Top URL by visits
     top_url = urls.order_by('-visits').first() if urls else None
 
     # ✅ Bounce rate
-    visitor_counts = Counter([e.visitor_id for e in events if e.visitor_id])
+    visitor_counts = Counter([f"{e.ip_address}_{e.user_agent}" for e in events if e.ip_address and e.user_agent])
     single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
     bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
 
