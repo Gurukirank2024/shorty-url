@@ -6,7 +6,6 @@ from home_shorty.models import short_url
 
 import random
 import string
-import uuid   # ✅ for visitor_id
 from .utils import is_url_safe, get_country_from_ip
 from django.utils import timezone
 from collections import Counter
@@ -68,19 +67,15 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Hybrid visitor_id: cookie + session
-            visitor_id = request.COOKIES.get('visitor_id')
-            if not visitor_id:
-                visitor_id = request.session.get('visitor_id')
-            if not visitor_id:
-                visitor_id = str(uuid.uuid4())
-                request.session['visitor_id'] = visitor_id
-
+            # ✅ Fingerprint visitor using IP + User Agent
+            ip_address = request.META.get('REMOTE_ADDR')
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+            visitor_id = f"{ip_address}_{user_agent}"
+
             referrer = request.META.get('HTTP_REFERER', 'Direct')
             source = request.GET.get("src", None)
             final_referrer = source if source else referrer
-            country = get_country_from_ip(request.META.get('REMOTE_ADDR'))
+            country = get_country_from_ip(ip_address)
 
             # ✅ Always increment visits
             check.visits += 1
@@ -90,24 +85,15 @@ def home(request, query=None):
             # ✅ Always log ClickEvent
             ClickEvent.objects.create(
                 short_url=check,
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=ip_address,
                 user_agent=user_agent,
                 referrer=final_referrer,
                 country=country,
                 visitor_id=visitor_id
             )
 
-            # ✅ Set cookie BEFORE redirect
-            response = redirect(check.originalURL)
-            response.set_cookie(
-                'visitor_id',
-                visitor_id,
-                max_age=60*60*24*365,   # 1 year
-                secure=False,           # allow on HTTP (set True in production HTTPS)
-                httponly=True,
-                samesite='Lax'
-            )
-            return response
+            # ✅ Redirect without cookies
+            return redirect(check.originalURL)
 
         except ShortURL.DoesNotExist:
             try:
@@ -146,7 +132,7 @@ def analytics_dashboard(request):
     # ✅ Total clicks = number of events
     total_clicks = events.count()
 
-    # ✅ Unique visitors: deduplicate only by visitor_id
+    # ✅ Unique visitors: deduplicate by fingerprint (visitor_id)
     visitor_ids = {e.visitor_id for e in events if e.visitor_id}
     unique_visitors = len(visitor_ids)
 
