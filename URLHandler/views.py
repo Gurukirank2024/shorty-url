@@ -71,6 +71,10 @@ def home(request, query=None):
             if ',' in ip:
                 ip = ip.split(',')[0].strip()
 
+            # ✅ Normalize IPv6-mapped addresses
+            if ip.startswith("::ffff:"):
+                ip = ip.replace("::ffff:", "")
+
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
 
@@ -131,8 +135,14 @@ def analytics_dashboard(request):
     # Raw total clicks (every request logged)
     total_clicks = len(events)
 
-    # ✅ Unique visitors: deduplicate by IP + short URL
-    visitor_keys = [(e.ip_address, e.short_url_id) for e in events]
+    # ✅ Unique visitors: deduplicate by normalized IP + short URL
+    visitor_keys = []
+    for e in events:
+        ip = e.ip_address
+        if ip.startswith("::ffff:"):
+            ip = ip.replace("::ffff:", "")
+        visitor_keys.append((ip, e.short_url_id))
+
     unique_visitors = len(set(visitor_keys)) if events else 0
 
     top_url = urls.order_by('-visits').first() if urls else None
@@ -154,7 +164,7 @@ def analytics_dashboard(request):
 
     context = {
         'total_clicks': total_clicks,          # raw clicks
-        'unique_visitors': unique_visitors,    # deduplicated by IP + short URL
+        'unique_visitors': unique_visitors,    # deduplicated by normalized IP + short URL
         'top_url': top_url,
         'bounce_rate': round(bounce_rate, 2),  # based on unique visitors
         'clicks_by_day': clicks_by_day,
