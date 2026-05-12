@@ -8,6 +8,7 @@ import random
 import string
 from .utils import is_url_safe, get_country_from_ip   # ✅ helper
 from django.utils import timezone
+from datetime import timedelta
 from collections import Counter
 
 # Dashboard view
@@ -67,11 +68,6 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Always increment visits and log event
-            check.visits += 1
-            check.updated_at = timezone.now()
-            check.save()
-
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '0.0.0.0'))
             if ',' in ip:
                 ip = ip.split(',')[0].strip()
@@ -85,13 +81,24 @@ def home(request, query=None):
 
             country = get_country_from_ip(ip)
 
-            ClickEvent.objects.create(
+            # ✅ Deduplication: avoid double-counting within 5 seconds
+            recent_event = ClickEvent.objects.filter(
                 short_url=check,
-                ip_address=ip,
-                user_agent=user_agent,
-                referrer=final_referrer,
-                country=country
-            )
+                ip_address=ip
+            ).order_by('-clicked_at').first()
+
+            if not recent_event or (timezone.now() - recent_event.clicked_at) > timedelta(seconds=5):
+                check.visits += 1
+                check.updated_at = timezone.now()
+                check.save()
+
+                ClickEvent.objects.create(
+                    short_url=check,
+                    ip_address=ip,
+                    user_agent=user_agent,
+                    referrer=final_referrer,
+                    country=country
+                )
 
             return redirect(check.originalURL)
         except ShortURL.DoesNotExist:
@@ -112,6 +119,16 @@ def deleteurl(request):
     else:
         return redirect(home)
 
+# ✅ Improved device detection
+def get_device_type(user_agent):
+    ua = (user_agent or "").lower()
+    if "mobile" in ua and "tablet" not in ua:
+        return "Mobile"
+    elif "tablet" in ua or "ipad" in ua:
+        return "Tablet"
+    else:
+        return "Desktop"
+
 @login_required(login_url='/loginPage/')
 def analytics_dashboard(request):
     usr = request.user
@@ -128,10 +145,13 @@ def analytics_dashboard(request):
 
     clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
     top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
+
+    # ✅ More accurate device classification
     device_counts = dict(Counter([
-        'Mobile' if 'Mobile' in (e.user_agent or '') else 'Desktop'
+        get_device_type(e.user_agent)
         for e in events
     ])) if events else {}
+
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
 
     context = {
