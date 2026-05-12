@@ -131,22 +131,26 @@ def analytics_dashboard(request):
     urls = ShortURL.objects.filter(user=usr)
     events = ClickEvent.objects.filter(short_url__in=urls)
 
-    total_clicks = len(events)
+    # ✅ Total clicks = number of events
+    total_clicks = events.count()
 
-    # ✅ Unique visitors: deduplicate by visitor_id + short URL
-    visitor_keys = [(e.visitor_id, e.short_url_id) for e in events if e.visitor_id]
-    unique_visitors = len(set(visitor_keys)) if events else 0
+    # ✅ Unique visitors: deduplicate only by visitor_id
+    visitor_ids = {e.visitor_id for e in events if e.visitor_id}
+    unique_visitors = len(visitor_ids)
 
+    # ✅ Top URL by visits
     top_url = urls.order_by('-visits').first() if urls else None
 
-    visitor_counts = Counter(visitor_keys) if events else {}
+    # ✅ Bounce rate: visitors who clicked only once across ALL URLs
+    visitor_counts = Counter([e.visitor_id for e in events if e.visitor_id])
     single_click_visitors = sum(1 for c in visitor_counts.values() if c == 1)
     bounce_rate = (single_click_visitors / unique_visitors * 100) if unique_visitors else 0
 
-    clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events])) if events else {}
-    top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events])) if events else {}
-    device_counts = dict(Counter([get_device_type(e.user_agent) for e in events])) if events else {}
-    referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events])) if events else {}
+    # ✅ Grouping stats
+    clicks_by_day = dict(Counter([e.clicked_at.strftime('%a') for e in events]))
+    top_countries = dict(Counter([e.country if e.country else 'Unknown' for e in events]))
+    device_counts = dict(Counter([get_device_type(e.user_agent) for e in events]))
+    referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events]))
 
     context = {
         'total_clicks': total_clicks,
