@@ -76,13 +76,17 @@ def home(request, query=None):
             # ✅ Referrer tagging with normalization
             source = request.GET.get("src")
             if source:
-                mapping = {
-                    "whatsapp": "WhatsApp",
-                    "facebook": "Facebook",
-                    "instagram": "Instagram",
-                    "dashboard": "Dashboard"
-                }
-                final_referrer = mapping.get(source.strip().lower(), source.strip())
+                source_clean = source.strip().lower()
+                if source_clean.startswith("w"):   # collapse w, wh, what, whatsapp → WhatsApp
+                    final_referrer = "WhatsApp"
+                elif source_clean.startswith("fb"):
+                    final_referrer = "Facebook"
+                elif source_clean.startswith("insta"):
+                    final_referrer = "Instagram"
+                elif source_clean.startswith("dash"):
+                    final_referrer = "Dashboard"
+                else:
+                    final_referrer = source_clean.capitalize()
             else:
                 final_referrer = request.META.get('HTTP_REFERER', 'Direct')
 
