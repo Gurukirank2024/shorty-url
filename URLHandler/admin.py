@@ -7,8 +7,10 @@ class ShortURLAdmin(admin.ModelAdmin):
     search_fields = ("shortQuery", "originalURL")
     list_filter = ("created_at", "user")
 
+
 @admin.register(ClickEvent)
 class ClickEventAdmin(admin.ModelAdmin):
+    # ✅ visitor_id included again since it's present in your model
     list_display = ("short_url", "visitor_id", "ip_address", "country", "referrer", "clicked_at")
     search_fields = ("visitor_id", "ip_address", "country", "referrer")
     list_filter = ("country", "clicked_at")

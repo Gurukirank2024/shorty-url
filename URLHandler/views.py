@@ -10,6 +10,7 @@ import uuid   # ✅ for visitor_id
 from .utils import is_url_safe, get_country_from_ip
 from django.utils import timezone
 from collections import Counter
+from datetime import timedelta
 
 # Dashboard view
 @login_required(login_url='/loginPage/')
@@ -74,25 +75,40 @@ def home(request, query=None):
                 visitor_id = str(uuid.uuid4())
 
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
-            referrer = request.META.get('HTTP_REFERER', 'Direct')
+            referrer = request.META.get('HTTP_REFERER', '')
             source = request.GET.get("src", None)
-            final_referrer = source if source else referrer
+
+            # ✅ Normalize referrer
+            if source:
+                final_referrer = source
+            elif not referrer:
+                final_referrer = "Direct"
+            elif "dashboard" in referrer.lower():
+                final_referrer = "Dashboard"
+            else:
+                final_referrer = referrer
+
             country = get_country_from_ip(request.META.get('REMOTE_ADDR'))
 
-            # ✅ Always increment visits (every click)
-            check.visits += 1
-            check.updated_at = timezone.now()
-            check.save()
-
-            # ✅ Always log a ClickEvent with the same visitor_id
-            ClickEvent.objects.create(
+            # ✅ Time-gap filter: prevent duplicate events within 5 seconds
+            last_event = ClickEvent.objects.filter(
                 short_url=check,
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=user_agent,
-                referrer=final_referrer,
-                country=country,
                 visitor_id=visitor_id
-            )
+            ).order_by('-clicked_at').first()
+
+            if not last_event or (timezone.now() - last_event.clicked_at) > timedelta(seconds=5):
+                check.visits += 1
+                check.updated_at = timezone.now()
+                check.save()
+
+                ClickEvent.objects.create(
+                    short_url=check,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=user_agent,
+                    referrer=final_referrer,
+                    country=country,
+                    visitor_id=visitor_id
+                )
 
             # ✅ Set cookie BEFORE redirect, with strict flags
             response = redirect(check.originalURL)
