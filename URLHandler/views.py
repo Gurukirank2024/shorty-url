@@ -68,10 +68,13 @@ def home(request, query=None):
         try:
             check = ShortURL.objects.get(shortQuery=query)
 
-            # ✅ Assign or reuse visitor_id cookie
+            # ✅ Hybrid visitor_id: cookie + session
             visitor_id = request.COOKIES.get('visitor_id')
             if not visitor_id:
+                visitor_id = request.session.get('visitor_id')
+            if not visitor_id:
                 visitor_id = str(uuid.uuid4())
+                request.session['visitor_id'] = visitor_id
 
             user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
             referrer = request.META.get('HTTP_REFERER', 'Direct')
@@ -79,12 +82,12 @@ def home(request, query=None):
             final_referrer = source if source else referrer
             country = get_country_from_ip(request.META.get('REMOTE_ADDR'))
 
-            # ✅ Always increment visits (every click)
+            # ✅ Always increment visits
             check.visits += 1
             check.updated_at = timezone.now()
             check.save()
 
-            # ✅ Always log a ClickEvent with the same visitor_id
+            # ✅ Always log ClickEvent
             ClickEvent.objects.create(
                 short_url=check,
                 ip_address=request.META.get('REMOTE_ADDR'),
@@ -94,15 +97,15 @@ def home(request, query=None):
                 visitor_id=visitor_id
             )
 
-            # ✅ Set cookie BEFORE redirect, with strict flags
+            # ✅ Set cookie BEFORE redirect
             response = redirect(check.originalURL)
             response.set_cookie(
                 'visitor_id',
                 visitor_id,
                 max_age=60*60*24*365,   # 1 year
-                secure=True,            # required for HTTPS on Render
-                httponly=True,          # prevents JS tampering
-                samesite='Lax'          # avoids cross-site drops
+                secure=False,           # allow on HTTP (set True in production HTTPS)
+                httponly=True,
+                samesite='Lax'
             )
             return response
 
