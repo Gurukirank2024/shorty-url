@@ -81,14 +81,13 @@ def home(request, query=None):
 
             country = get_country_from_ip(ip)
 
-            # ✅ Deduplication: avoid double-counting within 5 seconds (IP + User Agent)
+            # ✅ Deduplication: avoid double-counting within 10 seconds (IP only)
             recent_event = ClickEvent.objects.filter(
                 short_url=check,
-                ip_address=ip,
-                user_agent=user_agent
+                ip_address=ip
             ).order_by('-clicked_at').first()
 
-            if not recent_event or (timezone.now() - recent_event.clicked_at) > timedelta(seconds=5):
+            if not recent_event or (timezone.now() - recent_event.clicked_at) > timedelta(seconds=10):
                 check.visits += 1
                 check.updated_at = timezone.now()
                 check.save()
