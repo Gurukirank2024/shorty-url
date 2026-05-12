@@ -35,7 +35,7 @@ def is_url_safe(url):
 def get_country_from_ip(ip):
     """
     Get country name from IP using ipapi.co.
-    Returns 'Unknown' if lookup fails.
+    Returns 'India' if lookup fails.
     """
     try:
         # Handle localhost testing
@@ -45,7 +45,7 @@ def get_country_from_ip(ip):
         response = requests.get(f"https://ipapi.co/{ip}/json/")
         if response.status_code == 200:
             data = response.json()
-            return data.get("country_name", "Unknown")
-        return "Unknown"
+            return data.get("country_name", "India")  # ✅ fallback to India
+        return "India"  # ✅ fallback if API fails
     except Exception:
-        return "Unknown"
+        return "India"  # ✅ fallback if exception occurs

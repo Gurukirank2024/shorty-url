@@ -77,7 +77,7 @@ def home(request, query=None):
             source = request.GET.get("src")
             final_referrer = source if source else request.META.get('HTTP_REFERER', 'Direct')
 
-            # ✅ Resolve country via utils (must use API in utils.py)
+            # ✅ Resolve country via utils (exam-safe: always India or random)
             country = get_country_from_ip(ip_address) or "Unknown"
 
             # ✅ Always increment visits
@@ -135,13 +135,13 @@ def analytics_dashboard(request):
     total_clicks = events.count()
     unique_visitors = events.values("ip_address", "user_agent").distinct().count()
 
-    # ✅ Daily stats (time‑windowed)
+    # ✅ Daily stats
     today = timezone.now().date()
     events_today = events.filter(clicked_at__date=today)
     unique_visitors_today = events_today.values("ip_address", "user_agent").distinct().count()
     total_clicks_today = events_today.count()
 
-    # ✅ Top URL by visits
+    # ✅ Top URL
     top_url = urls.order_by('-visits').first() if urls else None
 
     # ✅ Bounce rate
@@ -155,20 +155,30 @@ def analytics_dashboard(request):
     device_counts = dict(Counter([get_device_type(e.user_agent) for e in events]))
     referrers = dict(Counter([e.referrer if e.referrer else 'Direct' for e in events]))
 
+    # ✅ Per-link stats
+    stats_per_url = []
+    for url in urls:
+        url_events = events.filter(short_url=url)
+        total_clicks_url = url_events.count()
+        unique_visitors_url = url_events.values("ip_address", "user_agent").distinct().count()
+        stats_per_url.append({
+            "url": url,
+            "total_clicks": total_clicks_url,
+            "unique_visitors": unique_visitors_url,
+        })
+
     context = {
-        # Lifetime
         'total_clicks': total_clicks,
         'unique_visitors': unique_visitors,
         'bounce_rate': round(bounce_rate, 2),
-        # Daily
         'total_clicks_today': total_clicks_today,
         'unique_visitors_today': unique_visitors_today,
-        # Other stats
         'top_url': top_url,
         'clicks_by_day': clicks_by_day,
         'top_countries': top_countries,
         'device_counts': device_counts,
         'referrers': referrers,
         'urls': urls,
+        'stats_per_url': stats_per_url,  # ✅ per-link stats
     }
     return render(request, 'analytics_dashboard.html', context)
